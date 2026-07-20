@@ -13,3 +13,4 @@ variable "private_subnet_2_cidr" {}
 variable "instance_type" {}
 
 variable "key_name" {}
+############################
