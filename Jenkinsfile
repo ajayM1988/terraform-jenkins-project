@@ -2,18 +2,34 @@ pipeline {
     agent any
 
     parameters {
+
         choice(
             name: 'ENV',
             choices: ['dev', 'uat', 'prod'],
             description: 'Select Environment'
         )
+
+        choice(
+            name: 'ACTION',
+            choices: ['plan', 'apply', 'destroy'],
+            description: 'Select Terraform Action'
+        )
+
+        string(
+            name: 'BRANCH',
+            defaultValue: 'feature/jenkins-setup',
+            description: 'Git Branch'
+        )
     }
 
     stages {
 
-        stage('Git Checkout') {
+        stage('Checkout') {
             steps {
-                checkout scm
+                checkout scmGit(
+                    branches: [[name: "*/${params.BRANCH}"]],
+                    userRemoteConfigs: [[url: 'https://github.com/ajayM1988/terraform-jenkins-project.git']]
+                )
             }
         }
 
@@ -35,27 +51,43 @@ pipeline {
             }
         }
 
-        stage('Terraform Plan') {
+        stage('Terraform Action') {
             steps {
-                sh "terraform plan -var-file=env/${ENV}.tfvars"
-            }
-        }
+                script {
 
-        stage('Terraform Apply') {
-            steps {
-                input message: "Approve Terraform Apply for ${ENV}?"
-                sh "terraform apply -auto-approve -var-file=env/${ENV}.tfvars"
+                    def tfvarsFile = "env/${params.ENV}.tfvars"
+
+                    if (params.ACTION == 'plan') {
+
+                        echo "Running PLAN for ${params.ENV}"
+
+                        sh "terraform plan -var-file=${tfvarsFile}"
+
+                    } else if (params.ACTION == 'apply') {
+
+                        echo "Running APPLY for ${params.ENV}"
+
+                        sh "terraform apply -auto-approve -var-file=${tfvarsFile}"
+
+                    } else if (params.ACTION == 'destroy') {
+
+                        echo "Running DESTROY for ${params.ENV}"
+
+                        sh "terraform destroy -auto-approve -var-file=${tfvarsFile}"
+                    }
+                }
             }
         }
     }
 
     post {
+
         success {
-            echo "Terraform deployment completed successfully!"
+            echo 'Terraform execution completed successfully!'
         }
 
         failure {
-            echo "Terraform deployment failed!"
+            echo 'Terraform execution failed!'
         }
     }
 }
